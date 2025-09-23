@@ -9,7 +9,6 @@ go get -u github.com/xiaoqidun/klock
 ```
 
 # 快速开始
-下面的示例演示了 klock 的核心作用：保护一个共享计数器在并发修改下的数据一致性
 ```go
 package main
 
