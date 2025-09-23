@@ -27,7 +27,7 @@ func main() {
 	lockKey := "counter_lock"
 	// 3. 模拟高并发修改计数器
 	var wg sync.WaitGroup
-	concurrency := 1000 // 增加并发量以突显问题
+	concurrency := 1000
 	wg.Add(concurrency)
 	for i := 0; i < concurrency; i++ {
 		go func() {
