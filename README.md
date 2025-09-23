@@ -1,4 +1,4 @@
-# klock
+# klock [![PkgGoDev](https://pkg.go.dev/badge/github.com/xiaoqidun/klock)](https://pkg.go.dev/github.com/xiaoqidun/klock)
 一个键级别的高性能、并发安全的 Go 语言读写锁
 
 klock 通过为任意“键”创建独立的锁，允许操作不同数据的任务并行处理，从而在高并发场景下获得显著的性能提升
