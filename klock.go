@@ -185,6 +185,7 @@ func (kl *KeyLock) TryLock(key string) bool {
 // LockWithTimeout 尝试在给定的时间内为指定的键获取写锁。
 // 如果在超时前成功获取锁，则返回 true；否则返回 false。
 func (kl *KeyLock) LockWithTimeout(key string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
 	le := kl.prepareLock(key)
 	// 立即尝试一次，以避免在锁可用时产生不必要的延迟。
 	if le.rw.TryLock() {
@@ -197,25 +198,33 @@ func (kl *KeyLock) LockWithTimeout(key string, timeout time.Duration) bool {
 			kl.cancelLock(key, le)
 		}
 	}()
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
 	pollInterval := kl.config.InitialPollInterval
 	maxPollInterval := kl.config.MaxPollInterval
 	for {
-		select {
-		case <-timer.C:
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
 			return false
-		default:
-			time.Sleep(pollInterval)
-			if le.rw.TryLock() {
-				kl.commitLock(key, le)
-				acquired = true
-				return true
+		}
+		sleepInterval := pollInterval
+		if sleepInterval > remaining {
+			sleepInterval = remaining
+		}
+		time.Sleep(sleepInterval)
+		if time.Until(deadline) <= 0 {
+			return false
+		}
+		if le.rw.TryLock() {
+			if time.Until(deadline) <= 0 {
+				le.rw.Unlock()
+				return false
 			}
-			pollInterval *= 2
-			if pollInterval > maxPollInterval {
-				pollInterval = maxPollInterval
-			}
+			kl.commitLock(key, le)
+			acquired = true
+			return true
+		}
+		pollInterval *= 2
+		if pollInterval > maxPollInterval {
+			pollInterval = maxPollInterval
 		}
 	}
 }
@@ -244,6 +253,7 @@ func (kl *KeyLock) TryRLock(key string) bool {
 // RLockWithTimeout 尝试在给定的时间内为指定的键获取读锁。
 // 如果在超时前成功获取锁，则返回 true；否则返回 false。
 func (kl *KeyLock) RLockWithTimeout(key string, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
 	le := kl.prepareLock(key)
 	// 立即尝试一次
 	if le.rw.TryRLock() {
@@ -256,25 +266,33 @@ func (kl *KeyLock) RLockWithTimeout(key string, timeout time.Duration) bool {
 			kl.cancelLock(key, le)
 		}
 	}()
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
 	pollInterval := kl.config.InitialPollInterval
 	maxPollInterval := kl.config.MaxPollInterval
 	for {
-		select {
-		case <-timer.C:
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
 			return false
-		default:
-			time.Sleep(pollInterval)
-			if le.rw.TryRLock() {
-				kl.commitLock(key, le)
-				acquired = true
-				return true
+		}
+		sleepInterval := pollInterval
+		if sleepInterval > remaining {
+			sleepInterval = remaining
+		}
+		time.Sleep(sleepInterval)
+		if time.Until(deadline) <= 0 {
+			return false
+		}
+		if le.rw.TryRLock() {
+			if time.Until(deadline) <= 0 {
+				le.rw.RUnlock()
+				return false
 			}
-			pollInterval *= 2
-			if pollInterval > maxPollInterval {
-				pollInterval = maxPollInterval
-			}
+			kl.commitLock(key, le)
+			acquired = true
+			return true
+		}
+		pollInterval *= 2
+		if pollInterval > maxPollInterval {
+			pollInterval = maxPollInterval
 		}
 	}
 }

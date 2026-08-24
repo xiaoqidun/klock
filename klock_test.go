@@ -250,6 +250,30 @@ func TestLockWithTimeout(t *testing.T) {
 	}
 }
 
+// TestLockWithTimeoutDoesNotAcquireAfterDeadline 测试写锁在超时后被释放时不会再被获取。
+func TestLockWithTimeoutDoesNotAcquireAfterDeadline(t *testing.T) {
+	kl := NewWithConfig(Config{
+		MaxPollInterval:     50 * time.Millisecond,
+		InitialPollInterval: 50 * time.Millisecond,
+	})
+	key := "test_key"
+	released := make(chan struct{})
+	kl.Lock(key)
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		kl.Unlock(key)
+		close(released)
+	}()
+	acquired := kl.LockWithTimeout(key, 10*time.Millisecond)
+	if acquired {
+		kl.Unlock(key)
+	}
+	<-released
+	if acquired {
+		t.Fatal("LockWithTimeout 不应该在超时后获取锁")
+	}
+}
+
 // TestRLockWithTimeout 测试带超时的读锁获取功能。
 func TestRLockWithTimeout(t *testing.T) {
 	kl := New()
@@ -267,6 +291,30 @@ func TestRLockWithTimeout(t *testing.T) {
 	defer kl.Unlock(key)
 	if kl.RLockWithTimeout(key, 10*time.Millisecond) {
 		t.Fatal("RLockWithTimeout 在超时后应该失败")
+	}
+}
+
+// TestRLockWithTimeoutDoesNotAcquireAfterDeadline 测试读锁在超时后被释放时不会再被获取。
+func TestRLockWithTimeoutDoesNotAcquireAfterDeadline(t *testing.T) {
+	kl := NewWithConfig(Config{
+		MaxPollInterval:     50 * time.Millisecond,
+		InitialPollInterval: 50 * time.Millisecond,
+	})
+	key := "test_key"
+	released := make(chan struct{})
+	kl.Lock(key)
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		kl.Unlock(key)
+		close(released)
+	}()
+	acquired := kl.RLockWithTimeout(key, 10*time.Millisecond)
+	if acquired {
+		kl.RUnlock(key)
+	}
+	<-released
+	if acquired {
+		t.Fatal("RLockWithTimeout 不应该在超时后获取锁")
 	}
 }
 
